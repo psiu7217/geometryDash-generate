@@ -10,7 +10,7 @@ from gdgen.generator import generate, spec_from_preset
 from gdgen.gdlvl import load_gdlvl, save_gdlvl
 from gdgen.moonlit import (
     CLOUD_IDS, GLOW, MOON_DISC, MOONLIT_DECOR_IDS,
-    MOVE_TRIGGER, PULSE_TRIGGER,
+    MOVE_TRIGGER, PULSE_TRIGGER, ship_corridor_bounds,
 )
 from gdgen.objects import BLOCK, HAZARD_IDS, PORTAL_BALL, PORTAL_WAVE
 from gdgen.validate import validate
@@ -57,6 +57,46 @@ class MoonlitTests(unittest.TestCase):
         self.assertIn(MOVE_TRIGGER, ids)
         self.assertIn(PULSE_TRIGGER, ids)
         self.assertGreater(sum(oid in MOONLIT_DECOR_IDS for oid in ids), 400)
+
+    def test_ship_requires_steering_but_has_wide_reaction_windows(self):
+        ship = self.level.sections[1]
+        start, end = ship["start"], ship["end"]
+        positions = range(int(start + 880), int(end - 850), 60)
+        samples = [ship_corridor_bounds(start, end, x) for x in positions]
+        centers = [center for _, _, center in samples]
+        # Flying at a constant altitude will hit at least one bank.
+        self.assertGreater(max(centers) - min(centers), 165)
+        for fixed_y in range(60, 331, 15):
+            self.assertTrue(
+                any(fixed_y < low + 15 or fixed_y > high - 15
+                    for low, high, _ in samples),
+                f"Ship can stay at y={fixed_y} for the entire slalom",
+            )
+        # No expert-level pinches or instantaneous 90-degree turns.
+        self.assertTrue(all(top - bottom >= 180
+                            for bottom, top, _ in samples))
+        self.assertLess(max(abs(b - a)
+                            for a, b in zip(centers, centers[1:])), 28)
+
+    def test_ship_generated_blocks_follow_profile(self):
+        ship = self.level.sections[1]
+        start, end = ship["start"], ship["end"]
+        walls = [o for o in self.level.objects
+                 if o.id == BLOCK and start + 400 < o.x < end - 400]
+        self.assertGreater(len(walls), 65)
+        for x in range(int(start + 900), int(end - 700), 120):
+            low, high, center = ship_corridor_bounds(start, end, x)
+            self.assertGreaterEqual(high - low, 180)
+            # A generous free corridor should surround the planned route.
+            self.assertGreater(center - low, 68)
+            self.assertGreater(high - center, 68)
+
+    def test_new_scenery_density(self):
+        decorative = [o for o in self.level.objects
+                      if o.id in MOONLIT_DECOR_IDS]
+        self.assertGreater(len(decorative), 1400)
+        self.assertGreater(len(self.level.objects), 1800)
+        self.assertEqual(sum(o.id in HAZARD_IDS for o in self.level.objects), 8)
 
     def test_group_targets_exist(self):
         groups = set()
