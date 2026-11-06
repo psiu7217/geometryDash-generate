@@ -173,11 +173,16 @@ def _int(element: ET.Element | None, default: int = 0) -> int:
 
 
 def level_from_xml(root: ET.Element) -> Level:
-    dict_el = root.find("dict")
+    # Standalone .gdlvl uses <dict>, while CCLocalLevels.dat uses the
+    # abbreviated <d> tag for each nested level dictionary.
+    dict_el = next(
+        (candidate for candidate in (
+            root.find("dict"), root.find("d"), root.find(".//dict"), root.find(".//d"),
+        ) if candidate is not None),
+        None,
+    )
     if dict_el is None:
-        dict_el = root.find(".//dict")
-    if dict_el is None:
-        raise ValueError(".gdlvl не содержит <dict> уровня")
+        raise ValueError("Данные уровня не содержат <dict> или <d>")
     entries = flat_entries(dict_el)
     name = _text(entries.get("k2")) or "Unnamed"
     description_raw = _text(entries.get("k3"))
