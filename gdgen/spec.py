@@ -44,6 +44,11 @@ THEMES: dict[str, dict] = {
         "palette": ["3dff8b", "00d0a0", "9dff3d", "00ffcc"],
         "label": "Forest",
     },
+    "moonlit": {
+        "bg": "080823", "ground": "1b1038",
+        "palette": ["e9d6ff", "f5a0e7", "aa80ff", "8cdafa"],
+        "label": "Moonlit Clouds",
+    },
     "sunset": {
         "bg": "1a0033", "ground": "330a2a",
         "palette": ["ff6ad5", "ff9e3d", "a03dff", "ffd23d"],
@@ -58,6 +63,7 @@ THEME_WORDS = {
     "ice": ["лёд", "лед", "льдин", "ice", "frozen", "снег", "snow"],
     "cyber": ["кибер", "cyber", "matrix", "матриц", "hacker", "хакер"],
     "forest": ["лес", "forest", "джунгл", "jungle", "природ", "nature"],
+    "moonlit": ["moonlit", "лунн", "лунное королевство", "облачн", "cloud kingdom"],
     "sunset": ["закат", "sunset", "рассвет", "sunrise", "retro", "ретро"],
 }
 
