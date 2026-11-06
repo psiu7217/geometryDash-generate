@@ -32,8 +32,8 @@ class MoonlitTests(unittest.TestCase):
 
     def test_reachable_portals_and_ball_geometry(self):
         objects = self.level.objects
-        self.assertEqual(sum(o.id == PORTAL_BALL for o in objects), 1)
-        self.assertGreaterEqual(sum(o.id == PORTAL_WAVE for o in objects), 1)
+        self.assertEqual(sum(o.id == PORTAL_BALL for o in objects), 3)
+        self.assertEqual(sum(o.id == PORTAL_WAVE for o in objects), 2)
         ball = self.level.sections[2]
         ceiling = [o for o in objects if o.id == BLOCK
                    and ball["start"] + 500 <= o.x < ball["end"] - 500
