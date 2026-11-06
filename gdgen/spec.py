@@ -93,6 +93,7 @@ class LevelSpec:
     fast_second_half: bool = False
     seed: int = 1
     music_id: int = 0
+    bpm: int = 120  # decorative rhythm accents; not a song-sync guarantee
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), ensure_ascii=False, indent=2)
@@ -226,6 +227,11 @@ def parse_prompt(text: str, base: LevelSpec | None = None) -> LevelSpec:
     elif re.search(r"втор(ая|ую) половин\w* медленнее|slower.*second half", text_l):
         spec.fast_second_half = False
 
+    # --- beat grid (cosmetic accents; track BPM must be supplied)
+    bpm_match = re.search(r"\b(\d{2,3})\s*bpm\b|\bbpm\s*[:=]?\s*(\d{2,3})\b", text_l)
+    if bpm_match:
+        spec.bpm = max(40, min(300, int(next(g for g in bpm_match.groups() if g))))
+
     # --- music
     music_match = re.search(r"(?:музык\w*|music|song)\s*(?:id)?\s*[:=]?\s*(\d+)", text_l)
     if music_match:
@@ -247,5 +253,5 @@ def describe(spec: LevelSpec) -> str:
     modes = " -> ".join(m.capitalize() for m in spec.modes)
     return (
         f"{spec.name}: {spec.duration:.0f}s, {spec.difficulty}, theme {theme}, "
-        f"modes {modes}, decor {spec.decor}/3"
+        f"modes {modes}, decor {spec.decor}/3, BPM {spec.bpm}"
     )
