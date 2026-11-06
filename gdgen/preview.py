@@ -19,6 +19,7 @@ from .objects import (
     GRAVITY_FLIP, GRAVITY_NORMAL, MIRROR_ON, MIRROR_OFF,
 )
 from .route import estimate_route, _mode_sections
+from .city import CITY_PANEL, CITY_GLOW, CITY_IDS
 
 
 FONT: dict[str, list[str]] = {
@@ -186,7 +187,9 @@ def _edge(ax: float, ay: float, bx: float, by: float, px: float, py: float) -> f
 
 
 def render_preview(level: Level, path: str | pathlib.Path,
-                   width_per_block: int = 8, height_per_block: int = 12) -> pathlib.Path:
+                   width_per_block: int = 8, height_per_block: int = 12,
+                   *, start_x: float = 0.0,
+                   window_blocks: int | None = None) -> pathlib.Path:
     path = pathlib.Path(path)
     if not level.route:
         level.route = estimate_route(level)
@@ -205,14 +208,23 @@ def render_preview(level: Level, path: str | pathlib.Path,
     footer = 58
     scale_x = width_per_block / 30.0
     scale_y = height_per_block / 30.0
-    width = int(margin * 2 + max_x * scale_x)
+    view_start = max(0.0, float(start_x))
+    if window_blocks is None:
+        view_end = max(max_x, view_start + 30.0)
+    else:
+        if window_blocks <= 0:
+            raise ValueError("Количество блоков предпросмотра должно быть > 0")
+        view_end = min(max_x, view_start + window_blocks * 30.0)
+        if view_end <= view_start:
+            raise ValueError("Начало фрагмента за пределами уровня")
+    width = int(margin * 2 + (view_end - view_start) * scale_x)
     height = int(header + footer + (y_max - y_min) * scale_y)
 
     bg = _color(level, level.bg_channel, (5, 1, 15))
     canvas = Canvas(width, height, _darken(bg, 0.75))
 
     def px(x: float) -> float:
-        return margin + x * scale_x
+        return margin + (x - view_start) * scale_x
 
     def py(y: float) -> float:
         return header + (y_max - y) * scale_y
@@ -230,8 +242,8 @@ def render_preview(level: Level, path: str | pathlib.Path,
 
     # Grid (10 blocks).
     grid_color = _mix(_darken(bg, 0.75), (120, 120, 255), 0.12)
-    x = 0
-    while x <= max_x:
+    x = int(view_start // 300) * 300
+    while x <= view_end:
         canvas.line(px(x), header, px(x), height - footer, grid_color, 0.5)
         x += 300
 
@@ -241,9 +253,23 @@ def render_preview(level: Level, path: str | pathlib.Path,
     canvas.line(px(-100), py(0), px(max_x + 100), py(0), _color(level, 1002, (0, 229, 255)), 0.8)
 
     # Objects: blocks first, hazards/portals above them.
-    for obj in sorted(level.objects, key=lambda o: (o.id != BLOCK, o.x)):
+    for obj in sorted(level.objects, key=lambda o: (o.id not in CITY_IDS, o.id != BLOCK, o.x)):
+        if obj.x < view_start - 300 or obj.x > view_end + 300:
+            continue
         color = _color(level, obj.color_channel or 1004, (80, 90, 160))
-        if obj.id == BLOCK:
+        if obj.id == CITY_PANEL:
+            left = obj.x - 15 * obj.scale_x
+            right = obj.x + 15 * obj.scale_x
+            top = obj.y + 15 * obj.scale_y
+            bottom = obj.y - 15 * obj.scale_y
+            canvas.rect(px(left), py(top), px(right), py(bottom), color, 0.72)
+            canvas.outline(px(left), py(top), px(right), py(bottom),
+                           _mix(color, (255, 255, 255), 0.2), 0.35)
+        elif obj.id == CITY_GLOW:
+            radius = max(1.5, 4.0 * obj.scale_x * width_per_block / 8)
+            canvas.circle(px(obj.x), py(obj.y), radius * 1.8, color, 0.16)
+            canvas.circle(px(obj.x), py(obj.y), radius, color, 0.62)
+        elif obj.id == BLOCK:
             top = obj.y + 15 * obj.scale_y
             bottom = obj.y - 15 * obj.scale_y
             left = obj.x - 15 * obj.scale_x
@@ -296,6 +322,8 @@ def render_preview(level: Level, path: str | pathlib.Path,
     # Route: dashed line, drawn above the level.
     if level.route:
         for (x0, y0), (x1, y1) in zip(level.route, level.route[1:]):
+            if x1 < view_start or x0 > view_end:
+                continue
             canvas.line(px(x0), py(y0), px(x1), py(y1), (255, 255, 255), 0.55, dashed=True)
 
     # Header.
@@ -303,6 +331,8 @@ def render_preview(level: Level, path: str | pathlib.Path,
     canvas.text(margin, 16, level.name[:42], title_color, 3)
     duration = level.duration_seconds or level.length_units / 311.58
     subtitle = f"GENERATED PREVIEW  {duration:.1f}S  {level.length_units / 30:.0f} BLOCKS  {len(level.objects)} OBJECTS"
+    if window_blocks is not None:
+        subtitle = f"DETAIL  BLOCKS {view_start / 30:.0f}-{view_end / 30:.0f}  {duration:.1f}S"
     canvas.text(margin, 48, subtitle, (220, 220, 240), 1)
     canvas.text(margin, 64, "ROUTE IS ESTIMATED, NOT A VERIFIED PLAYTHROUGH", (255, 210, 90), 1)
 
@@ -317,7 +347,7 @@ def render_preview(level: Level, path: str | pathlib.Path,
         canvas.rect(lx, fy, lx + 10, fy + 10, color)
         canvas.text(lx + 16, fy + 2, label, (210, 210, 230), 1)
         lx += 16 + len(label) * 6 + 22
-    canvas.text(margin, fy + 18, "DARK BACKGROUND - NEON PALETTE - STATIC RENDER FROM .GDLVL DATA",
+    canvas.text(margin, fy + 18, "APPROXIMATE STATIC RENDER FROM ACTUAL .GDLVL OBJECTS",
                 (150, 150, 180), 1)
 
     canvas.save_png(path)
