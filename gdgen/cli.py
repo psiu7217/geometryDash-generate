@@ -96,24 +96,37 @@ def cmd_generate(args) -> int:
         spec.theme = args.theme
     if args.seed is not None:
         spec.seed = args.seed
+    if args.bpm is not None:
+        spec.bpm = max(40, min(300, args.bpm))
 
     level = generate(spec)
     out_dir = pathlib.Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / f"{slugify(spec.name)}.gdlvl"
-    save_gdlvl(path, level)
-    _write_sidecar(path, spec, level, metadata)
+    if not args.preview_only:
+        save_gdlvl(path, level)
+        _write_sidecar(path, spec, level, metadata)
 
     preview_path = None
-    if not args.no_preview:
+    detail_path = None
+    if not args.no_preview or args.preview_only:
         preview_path = render_preview(level, out_dir / "preview" / f"{slugify(spec.name)}.png")
+        detail_path = render_preview(
+            level, out_dir / "preview" / f"{slugify(spec.name)}_detail.png",
+            width_per_block=14, height_per_block=18, window_blocks=90,
+        )
 
     result = validate(level)
     _report(level, result)
     print(f"  спецификация: {describe(spec)}")
-    print(f"  .gdlvl: {path}")
+    if args.preview_only:
+        print("  РЕЖИМ ПРЕДПРОСМОТРА: .gdlvl и JSON не создавались.")
+    else:
+        print(f"  .gdlvl: {path}")
     if preview_path:
         print(f"  предпросмотр: {preview_path}")
+    if detail_path:
+        print(f"  детальный фрагмент: {detail_path}")
     if not result.ok:
         return 1
     print("  ВАЖНО: проходимость не проверена реальным прохождением.")
@@ -133,8 +146,7 @@ def cmd_edit(args) -> int:
     level = generate(spec)
     target = pathlib.Path(args.out) if args.out else path
     save_gdlvl(target, level)
-    if target != path:
-        pathlib.Path(str(path.with_suffix(".json"))).unlink(missing_ok=True)
+    # Preserve the source sidecar when --out writes an edited copy.
     metadata.setdefault("edits", []).append(args.prompt)
     _write_sidecar(target, spec, level, metadata)
 
@@ -158,7 +170,10 @@ def cmd_preview(args) -> int:
         level.route = estimate_route(level)
         annotate_sections(level)
     out = pathlib.Path(args.out) if args.out else pathlib.Path(args.input).with_suffix(".png")
-    render_preview(level, out, args.width_per_block, args.height_per_block)
+    render_preview(
+        level, out, args.width_per_block, args.height_per_block,
+        start_x=args.start_block * 30.0, window_blocks=args.blocks,
+    )
     print(f"PNG: {out}  ({level.length_units / 30:.0f} блоков)")
     return 0
 
@@ -218,12 +233,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     gen = sub.add_parser("generate", help="сгенерировать уровень по промпту или пресету")
     gen.add_argument("--prompt", "-p", help="текстовое описание уровня")
-    gen.add_argument("--preset", choices=["ai-neon-run"], help="готовый пресет")
+    gen.add_argument("--preset", choices=["ai-neon-run", "neon-cyber-city"], help="готовый пресет")
     gen.add_argument("--out", default="levels", help="папка для результата")
     gen.add_argument("--name", help="переопределить имя уровня")
     gen.add_argument("--duration", type=float, help="длительность в секундах")
     gen.add_argument("--theme", help="neon/space/lava/ice/cyber/forest/sunset")
     gen.add_argument("--seed", type=int, help="seed генератора")
+    gen.add_argument("--bpm", type=int, help="BPM для декоративных ритмических акцентов")
+    gen.add_argument("--preview-only", action="store_true", help="PNG без записи .gdlvl или JSON")
     gen.add_argument("--no-preview", action="store_true", help="не рисовать PNG")
     gen.set_defaults(func=cmd_generate)
 
@@ -241,6 +258,9 @@ def build_parser() -> argparse.ArgumentParser:
     prev.add_argument("--out", "-o", help="куда сохранить PNG")
     prev.add_argument("--width-per-block", type=int, default=8)
     prev.add_argument("--height-per-block", type=int, default=12)
+    prev.add_argument("--start-block", type=float, default=0,
+                      help="начальный блок увеличенного фрагмента")
+    prev.add_argument("--blocks", type=int, help="длина фрагмента в блоках")
     prev.set_defaults(func=cmd_preview)
 
     imp = sub.add_parser("import", help="добавить .gdlvl в CCLocalLevels.dat")
