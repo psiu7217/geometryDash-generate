@@ -1,0 +1,25 @@
+{
+  "name": "AI Neon Run",
+  "duration": 30.0,
+  "difficulty": "normal",
+  "theme": "neon",
+  "modes": [
+    "cube",
+    "ship",
+    "cube"
+  ],
+  "decor": 2,
+  "fast_second_half": true,
+  "seed": 20261105,
+  "music_id": 0,
+  "_generator": {
+    "version": "0.1.0",
+    "objects": 396,
+    "blocks": 336.0,
+    "duration_estimate": 29.95,
+    "metadata": {
+      "preset": "ai-neon-run",
+      "edits": []
+    }
+  }
+}
