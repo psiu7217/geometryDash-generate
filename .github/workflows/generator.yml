@@ -26,6 +26,12 @@ jobs:
         run: |
           python -m gdgen generate --preset neon-cyber-city --out levels
           python -m gdgen inspect levels/neon_cyber_city.gdlvl
+          python -m gdgen generate --preset moonlit-cloud-kingdom --out levels
+          python -m gdgen inspect levels/moonlit_cloud_kingdom.gdlvl
+          python -m gdgen preview levels/moonlit_cloud_kingdom.gdlvl --start-block 0 --blocks 156 --width-per-block 11 --height-per-block 14 --out levels/preview/moonlit_cloud_kingdom_cube.png
+          python -m gdgen preview levels/moonlit_cloud_kingdom.gdlvl --start-block 156 --blocks 156 --width-per-block 11 --height-per-block 14 --out levels/preview/moonlit_cloud_kingdom_ship.png
+          python -m gdgen preview levels/moonlit_cloud_kingdom.gdlvl --start-block 312 --blocks 156 --width-per-block 11 --height-per-block 14 --out levels/preview/moonlit_cloud_kingdom_ball.png
+          python -m gdgen preview levels/moonlit_cloud_kingdom.gdlvl --start-block 468 --blocks 156 --width-per-block 11 --height-per-block 14 --out levels/preview/moonlit_cloud_kingdom_wave.png
       - name: Upload playable sample and previews
         uses: actions/upload-artifact@v4
         with:
@@ -35,11 +41,15 @@ jobs:
             levels/neon_cyber_city.json
             levels/preview/neon_cyber_city.png
             levels/preview/neon_cyber_city_detail.png
+            levels/moonlit_cloud_kingdom.gdlvl
+            levels/moonlit_cloud_kingdom.json
+            levels/preview/moonlit_cloud_kingdom*.png
       - name: Commit reproducible example to main
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add levels/neon_cyber_city.gdlvl levels/neon_cyber_city.json levels/preview/neon_cyber_city.png levels/preview/neon_cyber_city_detail.png
+          git add levels/moonlit_cloud_kingdom.gdlvl levels/moonlit_cloud_kingdom.json levels/preview/moonlit_cloud_kingdom*.png
           if ! git diff --cached --quiet; then
             git commit -m "chore(samples): update generated Neon Cyber City"
             git pull --rebase origin main
