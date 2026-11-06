@@ -157,13 +157,13 @@ def _at(level: Level, x: float, y: float, mode: str) -> None:
 
 def _cube(level: Level, start: float, end: float) -> None:
     # Explicitly sparse: previous 'Neon Cyber City' was judged too hard.
-    for offset in (1050, 1980, 3060, 3960):
+    for offset in (780, 1410, 2100, 2820, 3540, 4200):
         if start + offset < end - 350:
             level.objects.append(make_spike(start + offset, 15, channel=3))
     # Optional yellow orbs reinforce the reference image but are not required
     # for progression. They are placed away from all compulsory spikes.
-    for offset in (1480, 3570):
-        level.objects.append(GDObject(ORB_YELLOW, start + offset, 105, {21: 6}))
+    for offset in (1110, 3160):
+        level.objects.append(GDObject(ORB_YELLOW, start + offset, 90, {21: 6}))
     # The ordinary Geometry Dash ground at y=0 is traversable.
     # Do NOT build a row of solid blocks on it: that would trap the player.
 
