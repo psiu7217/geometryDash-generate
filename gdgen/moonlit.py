@@ -209,9 +209,9 @@ def _ship(level: Level, start: float, end: float) -> None:
     The central path gradually rises/falls by ~240 units peak-to-trough;
     a constant-Y line hits an upper or lower bank. No moving solids.
     """
-    x = start + 300.0
-    while x < end - 290:
-        width = min(60.0, end - 290.0 - x)
+    x = start + 180.0
+    while x < end - 90:
+        width = min(60.0, end - 90.0 - x)
         mid = x + width / 2
         floor, ceiling, _ = ship_corridor_bounds(start, end, mid)
         # Near ground: no solid block when the curve dives below y=0.
