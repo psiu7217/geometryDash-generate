@@ -12,7 +12,7 @@ import random
 
 from .level import Color, Level
 from .objects import (
-    BLOCK, GDObject, MODE_PORTALS, SPEED_NORMAL, make_block,
+    BLOCK, GDObject, MODE_PORTALS, GRAVITY_NORMAL, ORB_YELLOW, make_block,
     make_color_trigger, make_portal, make_spike,
 )
 
@@ -112,6 +112,10 @@ def _cube(level: Level, start: float, end: float) -> None:
     for offset in (1050, 1980, 3060, 3960):
         if start + offset < end - 350:
             level.objects.append(make_spike(start + offset, 15, channel=3))
+    # Optional yellow orbs reinforce the reference image but are not required
+    # for progression. They are placed away from all compulsory spikes.
+    for offset in (1480, 3570):
+        level.objects.append(GDObject(ORB_YELLOW, start + offset, 105, {21: 6}))
     # The ordinary Geometry Dash ground at y=0 is traversable.
     # Do NOT build a row of solid blocks on it: that would trap the player.
 
@@ -152,6 +156,9 @@ def _ball(level: Level, start: float, end: float) -> None:
     for offset in (1720, 3450):
         if start + offset < end - 850:
             level.objects.append(make_spike(start + offset, 15, channel=3))
+    # Auto-restore normal gravity for balls travelling on the ceiling.
+    # Without this, an inverted Ball can drift upward when the ceiling ends.
+    level.objects.append(GDObject(GRAVITY_NORMAL, end - 790, 180, {}))
     # The final stretch has no ceiling: users can return to the floor before
     # the Wave portal. A second portal at ceiling height covers missed landings.
 
@@ -215,6 +222,10 @@ def _scenery(level: Level, sections: list[dict], rng: random.Random,
                                   {51: 201, 28: 0, 29: 18, 10: 3.0}))
     level.objects.append(GDObject(MOVE_TRIGGER, 840, 15,
                                   {51: 202, 28: 0, 29: -9, 10: 4.0}))
+    level.objects.append(GDObject(ALPHA_TRIGGER, 570, 15,
+                                  {51: 202, 35: 0.85, 10: 1.5}))
+    level.objects.append(GDObject(ALPHA_TRIGGER, sections[1]["start"] + 450, 15,
+                                  {51: 202, 35: 1.0, 10: 2.0}))
     for section in sections:
         x = section["start"] + 360
         level.objects.append(make_color_trigger(x, 11, (190, 140, 255), 2.0))
@@ -277,10 +288,17 @@ def generate_moonlit(spec) -> Level:
         end = cursor + length
         sections.append({"start": cursor, "end": end, "mode": mode, "speed": 1})
         if i:
-            # Ball on floor and ceiling can both reach the Wave change.
-            _at(level, cursor + 30, 45, mode)
-            if mode == "wave":
+            # Ship altitude is player-controlled: cover the broad flight lane
+            # with vertically separated mode portals, not only a low one.
+            if mode == "ball":
+                for portal_y in (45, 145, 245):
+                    _at(level, cursor + 30, portal_y, mode)
+            elif mode == "wave":
+                # Ball can approach from floor or ceiling.
+                _at(level, cursor + 30, 45, mode)
                 _at(level, cursor + 30, 200, mode)
+            else:
+                _at(level, cursor + 30, 45, mode)
         if mode == "cube":
             _cube(level, cursor, end)
         elif mode == "ship":
