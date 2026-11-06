@@ -45,7 +45,10 @@ def _obj(level: Level, obj_id: int, x: float, y: float, *,
          z: int = -3, layer: int = 4, group: int | None = None,
          rotation: float = 0) -> GDObject:
     props: dict[int, int | float | str] = {
-        21: channel, 20: layer, 25: z, 64: 1, 67: 1,
+        21: channel, 20: layer,
+        # B4 rendering layer (-3): behind the player and all solid obstacles.
+        # Editor layer 20 alone is NOT a background rendering layer.
+        24: -3, 25: z, 64: 1, 67: 1,
     }
     if sx != 1:
         props[128] = round(sx, 3)
