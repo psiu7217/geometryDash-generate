@@ -46,6 +46,9 @@ class Section:
 
 
 def generate(spec: LevelSpec) -> Level:
+    if spec.theme == "moonlit" and spec.modes == ["cube", "ship", "ball", "wave"]:
+        from .moonlit import generate_moonlit
+        return generate_moonlit(spec)
     rng = random.Random(spec.seed)
     level = Level(
         name=spec.name,
@@ -302,6 +305,19 @@ def build_preset(name: str, prompt: str) -> LevelSpec:
 
 def spec_from_preset(name: str) -> LevelSpec:
     preset = name.lower()
+    if preset == "moonlit-cloud-kingdom":
+        # GD level names are limited to 20 characters.
+        return LevelSpec(
+            name="Moonlit Cloud Realm",
+            duration=60.0,
+            difficulty="easy",
+            theme="moonlit",
+            modes=["cube", "ship", "ball", "wave"],
+            decor=3,
+            fast_second_half=False,
+            seed=202611061,
+            bpm=120,
+        )
     if preset == "neon-cyber-city":
         return LevelSpec(
             name="Neon Cyber City",
