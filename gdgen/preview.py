@@ -20,6 +20,7 @@ from .objects import (
 )
 from .route import estimate_route, _mode_sections
 from .city import CITY_PANEL, CITY_GLOW, CITY_IDS
+from .moonlit import CLOUD_IDS, MOON_DISC, MOON_DETAIL, MOONLIT_DECOR_IDS
 
 
 FONT: dict[str, list[str]] = {
@@ -253,11 +254,23 @@ def render_preview(level: Level, path: str | pathlib.Path,
     canvas.line(px(-100), py(0), px(max_x + 100), py(0), _color(level, 1002, (0, 229, 255)), 0.8)
 
     # Objects: blocks first, hazards/portals above them.
-    for obj in sorted(level.objects, key=lambda o: (o.id not in CITY_IDS, o.id != BLOCK, o.x)):
+    for obj in sorted(level.objects, key=lambda o: (o.id not in (CITY_IDS | MOONLIT_DECOR_IDS), o.id != BLOCK, o.x)):
         if obj.x < view_start - 300 or obj.x > view_end + 300:
             continue
         color = _color(level, obj.color_channel or 1004, (80, 90, 160))
-        if obj.id == CITY_PANEL:
+        if obj.id in CLOUD_IDS:
+            # Symbolic cloud silhouette for the native sprites.
+            radius = max(2, obj.scale_x * width_per_block * 1.65)
+            cx, cy = px(obj.x), py(obj.y)
+            for dx, dy, factor in ((-0.84, 0.15, 0.62), (-0.35, -0.14, 0.82),
+                                   (0.20, -0.30, 1.0), (0.80, 0.04, 0.63)):
+                canvas.circle(cx + dx * radius, cy + dy * radius,
+                              radius * factor, color, 0.55)
+        elif obj.id in (MOON_DISC, MOON_DETAIL):
+            radius = max(3, obj.scale_x * width_per_block * 1.55)
+            canvas.circle(px(obj.x), py(obj.y), radius * 1.25, color, 0.12)
+            canvas.circle(px(obj.x), py(obj.y), radius, color, 0.72)
+        elif obj.id == CITY_PANEL:
             left = obj.x - 15 * obj.scale_x
             right = obj.x + 15 * obj.scale_x
             top = obj.y + 15 * obj.scale_y
