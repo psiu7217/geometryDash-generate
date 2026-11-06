@@ -139,10 +139,42 @@ def add_level(level: Level, path: pathlib.Path | None = None,
     for index, key_el in sorted(shifts, reverse=True):
         key_el.text = f"k_{index + 1}"
 
-    new_dict = ET.fromstring(build_level_dict(level))
-    key_el = ET.SubElement(levels, "k")
+    # Keep GD's identity fields unique: it silently drops levels whose k80/k126
+    # collide, and k83 controls the order in the local level list.
+    used_ids: set[int] = set()
+    used_nonces: set[str] = set()
+    max_order = 0
+    for key, _, value in _entries(levels):
+        if not key.startswith("k_"):
+            continue
+        fields = {k: "".join(v.itertext()) for k, _, v in _entries(value)}
+        if fields.get("k80", "").isdigit():
+            used_ids.add(int(fields["k80"]))
+        if fields.get("k126"):
+            used_nonces.add(fields["k126"])
+        if fields.get("k83", "").isdigit():
+            max_order = max(max_order, int(fields["k83"]))
+
+    new_dict = ET.fromstring(build_level_dict(level, tag="d"))
+    new_fields = {k: v for k, _, v in _entries(new_dict)}
+    level_id = int("".join(new_fields["k80"].itertext()))
+    while level_id in used_ids:
+        level_id += 1
+    new_fields["k80"].text = str(level_id)
+    new_fields["k83"].text = str(max_order + 1)
+    nonce = "".join(new_fields["k126"].itertext())
+    counter = 0
+    while nonce in used_nonces:
+        counter += 1
+        nonce = ("".join(new_fields["k126"].itertext())[:14] + f"{counter:02d}")
+    new_fields["k126"].text = nonce
+
+    key_el = ET.Element("k")
     key_el.text = "k_0"
-    levels.append(new_dict)
+    # Keep the `_isArr` marker first, then put the new level at the top of the
+    # list so Geometry Dash shows it first in the editor's local levels.
+    levels.insert(2, key_el)
+    levels.insert(3, new_dict)
 
     xml = ET.tostring(root, encoding="utf-8", xml_declaration=False).decode("utf-8")
     data = encode_save(xml)

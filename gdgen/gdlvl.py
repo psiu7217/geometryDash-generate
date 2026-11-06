@@ -9,6 +9,7 @@ from __future__ import annotations
 import base64
 import binascii
 import gzip
+import hashlib
 import html
 import pathlib
 import re
@@ -62,25 +63,67 @@ def _entry(key: str, kind: str, value: str) -> str:
     return f"<k>{key}</k><{kind}>{_xml_escape(value)}</{kind}>"
 
 
-def build_level_dict(level: Level) -> str:
-    """Build the plist `<dict>` for a level file."""
+def _stable_identity(level: Level) -> tuple[str, str]:
+    """Deterministic level id and server nonce derived from the level content."""
+    payload = encode_level_data(level.to_level_string())
+    seed = (level.name + "|" + payload).encode("utf-8")
+    digest = hashlib.md5(seed).digest()
+    level_id = str(100000 + int.from_bytes(digest[:4], "big") % 900000)
+    nonce = base64.urlsafe_b64encode(hashlib.sha256(seed + b"nonce").digest()).decode("ascii")[:16]
+    return level_id, nonce
+
+
+def build_level_dict(level: Level, tag: str = "dict") -> str:
+    """Build a plist dict for one level.
+
+    `tag` is `dict` for standalone `.gdlvl` files. Inside `CCLocalLevels.dat`
+    Geometry Dash stores nested dictionaries with its own shorthand tag `<d>`
+    and ignores unknown elements, so save-file import must use `tag="d"`.
+
+    Geometry Dash silently drops local levels that lack the identity fields it
+    writes itself (`k80` id, `k83` order and `k126` nonce), so a full set of
+    keys is emitted here. Types and defaults mirror a real GD 2.209 save entry.
+    """
+    level_id, nonce = _stable_identity(level)
     entries = [
         _entry("kCEK", "i", "4"),
+        _entry("k18", "i", "0"),
+        _entry("k36", "i", "0"),
+        _entry("k85", "i", "0"),
+        _entry("k86", "i", "0"),
+        _entry("k87", "i", "0"),
+        _entry("k88", "s", "100"),
+        _entry("k23", "i", "0"),
+        _entry("k19", "i", "0"),
+        _entry("k71", "i", "0"),
+        _entry("k90", "i", "0"),
+        _entry("k20", "i", "2"),
+        _entry("k109", "s", "0"),
+        _entry("k110", "s", "0"),
         _entry("k2", "s", level.name),
         _entry("k3", "s", base64.b64encode(level.description.encode("utf-8")).decode("ascii")),
         _entry("k4", "s", encode_level_data(level.to_level_string())),
         _entry("k5", "s", level.author),
+        _entry("k101", "s", ",".join(["0"] * 20)),
+        _entry("k8", "i", "2"),
         _entry("k13", "t", ""),
-        _entry("k16", "i", "1"),
         _entry("k21", "i", "2"),
+        _entry("k16", "i", "1"),
+        _entry("k80", "i", level_id),
+        _entry("k83", "i", "1"),
+        _entry("k64", "i", "1"),
         _entry("k45", "i", str(level.music_id)),
+        _entry("k50", "i", "51"),
         _entry("k48", "i", "0"),
-        _entry("k50", "i", "0"),
-        _entry("k80", "i", "0"),
-        _entry("k101", "i", "0"),
-        _entry("k156", "i", "0"),
+        _entry("kI1", "r", "0"),
+        _entry("kI2", "r", "0"),
+        _entry("kI3", "r", "1"),
+        _entry("kI5", "i", "0"),
+        _entry("kI6", "d", "00102030405060708090100110120130"),
+        _entry("kI7", "i", "-1"),
+        _entry("k126", "s", nonce),
     ]
-    return "<dict>" + "".join(entries) + "</dict>"
+    return f"<{tag}>" + "".join(entries) + f"</{tag}>"
 
 
 def build_gdlvl_xml(level: Level) -> str:

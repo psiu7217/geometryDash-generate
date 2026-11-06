@@ -7,13 +7,14 @@ from gdgen.gdlvl import build_level_dict
 from gdgen.generator import generate, spec_from_preset
 from gdgen.level import Level
 from gdgen.savefile import (
-    SaveFileError, add_level, decode_save, encode_save, is_game_running, list_levels,
+    SaveFileError, _entries, _level_list, add_level, decode_save, encode_save,
+    is_game_running, list_levels,
 )
 
 
 def write_save(path: Path, levels: list[Level]) -> None:
     body = "".join(
-        f"<k>k_{index}</k>{build_level_dict(level)}"
+        f"<k>k_{index}</k>{build_level_dict(level, tag='d')}"
         for index, level in enumerate(levels)
     )
     xml = (
@@ -52,6 +53,28 @@ class SaveFileTests(unittest.TestCase):
             self.assertEqual(names[0], "AI Neon Run")
             self.assertIn("Existing Level", names)
             self.assertEqual(len(names), 2)
+
+    def test_added_level_uses_nested_dict_tag(self):
+        """GD stores nested dictionaries as <d>; a <dict> entry is silently ignored."""
+        with tempfile.TemporaryDirectory() as tmp:
+            save = Path(tmp) / "CCLocalLevels.dat"
+            write_save(save, [Level(name="Existing Level")])
+            add_level(generate(spec_from_preset("ai-neon-run")), save, allow_running=True)
+
+            root = ET.fromstring(decode_save(save.read_bytes()))
+            kinds = {key: value.tag for key, _, value in _entries(_level_list(root))}
+            self.assertEqual(kinds["_isArr"], "t")
+            self.assertEqual(kinds["k_0"], "d")
+            self.assertEqual(kinds["k_1"], "d")
+            self.assertEqual(
+                [key for key in kinds if key.startswith("k_")],
+                ["k_0", "k_1"],
+            )
+
+    def test_level_dict_root_tag(self):
+        level = generate(spec_from_preset("ai-neon-run"))
+        self.assertTrue(build_level_dict(level).startswith("<dict>"))
+        self.assertTrue(build_level_dict(level, tag="d").startswith("<d>"))
 
     def test_duplicate_name_refused(self):
         with tempfile.TemporaryDirectory() as tmp:
