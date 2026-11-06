@@ -1,0 +1,47 @@
+name: Generator tests and samples
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'levels/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  test-and-generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run unit tests
+        run: python -m unittest discover -s tests -v
+      - name: Generate example level and both previews
+        run: |
+          python -m gdgen generate --preset neon-cyber-city --out levels
+          python -m gdgen inspect levels/neon_cyber_city.gdlvl
+      - name: Upload playable sample and previews
+        uses: actions/upload-artifact@v4
+        with:
+          name: neon-cyber-city
+          path: |
+            levels/neon_cyber_city.gdlvl
+            levels/neon_cyber_city.json
+            levels/preview/neon_cyber_city.png
+            levels/preview/neon_cyber_city_detail.png
+      - name: Commit reproducible example to main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add levels/neon_cyber_city.gdlvl levels/neon_cyber_city.json levels/preview/neon_cyber_city.png levels/preview/neon_cyber_city_detail.png
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(samples): update generated Neon Cyber City"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
