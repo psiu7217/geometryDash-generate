@@ -161,11 +161,11 @@ def _wave(level: Level, start: float, end: float) -> None:
     # >= 300 units of usable vertical space, no sharp zigzag slits.
     # The player can follow a gentle diagonal rather than precise taps.
     x = start + 180
-    while x < end - 260:
+    while x < end - 30:
         phase = (x - start) / 1000.0
         floor = 8 + 8 * math.sin(phase)
         ceiling = floor + 325
-        width = min(90.0, end - 260 - x)
+        width = min(90.0, end - 30 - x)
         _solid_strip(level, x, x + width, 0, floor, 5, step=90)
         _solid_strip(level, x, x + width, ceiling, 410, 5, step=90)
         x += 90
@@ -177,10 +177,10 @@ def _scenery(level: Level, sections: list[dict], rng: random.Random,
     # Far clouds, midground clouds, glowing near clouds.
     for i, x in enumerate(range(90, int(max_x), 165)):
         offset = rng.uniform(-45, 45)
-        _cloud(level, x + offset, rng.uniform(285, 470),
+        _cloud(level, x + offset, rng.uniform(240, 390),
                rng.uniform(2.0, 4.2), 12, rng, group=201, z=-8)
         if i % 3 != 0:
-            _cloud(level, x + rng.uniform(-60, 60), rng.uniform(135, 290),
+            _cloud(level, x + rng.uniform(-60, 60), rng.uniform(135, 265),
                    rng.uniform(1.05, 2.6), rng.choice((2, 3, 5)),
                    rng, group=202, z=-6)
 
@@ -192,22 +192,22 @@ def _scenery(level: Level, sections: list[dict], rng: random.Random,
     # Stars and dangling lanterns; keep below conservative world limits.
     for i in range(int(max_x / 110)):
         x = 120 + i * 110 + rng.uniform(-20, 20)
-        y = rng.uniform(335, 560)
+        y = rng.uniform(245, 420)
         _star(level, x, y, channel=rng.choice((6, 7, 11)),
               size=rng.uniform(0.28, 0.7), hanging=i % 9 == 0)
 
     for section in sections:
         middle = (section["start"] + section["end"]) / 2
-        _moon(level, middle + 300, 450, 6.0)
+        _moon(level, middle + 300, 315, 6.0)
         for x in (section["start"] + 750, section["end"] - 630):
-            _arch(level, x, 415, width=140, height=150)
+            _arch(level, x, 240, width=140, height=150)
 
     # Ending temple: three decorative arcades, no solid walls.
     finish = sections[-1]["end"] - 180
     for offset, scale in ((-200, 1.2), (0, 1.6), (200, 1.2)):
-        _arch(level, finish + offset, 380, 110 * scale, 130 * scale)
+        _arch(level, finish + offset, 225, 110 * scale, 130 * scale)
     for x in range(int(finish - 180), int(finish + 180), 60):
-        _star(level, x, rng.uniform(370, 535), size=0.85)
+        _star(level, x, rng.uniform(280, 390), size=0.85)
 
     # Cosmetic triggers: native color, move, pulse and alpha keys.
     # This is conservative raw-object support, NOT a verified animation test.
@@ -226,7 +226,7 @@ def _scenery(level: Level, sections: list[dict], rng: random.Random,
     beat_step = BASE_SPEED * 60 / max(40, bpm)
     x = beat_step * 2
     while x < max_x - 90:
-        _star(level, x, 485, size=0.25)
+        _star(level, x, 390, size=0.25)
         x += beat_step * 2
 
 
