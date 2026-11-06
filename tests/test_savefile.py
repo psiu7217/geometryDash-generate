@@ -8,7 +8,7 @@ from gdgen.generator import generate, spec_from_preset
 from gdgen.level import Level
 from gdgen.savefile import (
     SaveFileError, _entries, _level_list, add_level, decode_save, encode_save,
-    is_game_running, list_levels,
+    is_game_running, list_levels, load_save_level,
 )
 
 
@@ -75,6 +75,15 @@ class SaveFileTests(unittest.TestCase):
         level = generate(spec_from_preset("ai-neon-run"))
         self.assertTrue(build_level_dict(level).startswith("<dict>"))
         self.assertTrue(build_level_dict(level, tag="d").startswith("<d>"))
+
+    def test_read_back_local_level_with_d_tag(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            save = Path(tmp) / "CCLocalLevels.dat"
+            original = generate(spec_from_preset("ai-neon-run"))
+            write_save(save, [original])
+            restored = load_save_level("AI Neon Run", save)
+            self.assertEqual(restored.name, original.name)
+            self.assertEqual(restored.to_level_string(), original.to_level_string())
 
     def test_duplicate_name_refused(self):
         with tempfile.TemporaryDirectory() as tmp:
