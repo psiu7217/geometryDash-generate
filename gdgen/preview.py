@@ -262,10 +262,13 @@ def render_preview(level: Level, path: str | pathlib.Path,
             # Symbolic cloud silhouette for the native sprites.
             radius = max(2, obj.scale_x * width_per_block * 1.65)
             cx, cy = px(obj.x), py(obj.y)
+            # Clouds in B4 must be understated, or the schematic hides the
+            # actual Ship collision banks and becomes visually misleading.
+            cloud_alpha = 0.21 if int(obj.get(25, -3)) <= -6 else 0.37
             for dx, dy, factor in ((-0.84, 0.15, 0.62), (-0.35, -0.14, 0.82),
                                    (0.20, -0.30, 1.0), (0.80, 0.04, 0.63)):
                 canvas.circle(cx + dx * radius, cy + dy * radius,
-                              radius * factor, color, 0.55)
+                              radius * factor, color, cloud_alpha)
         elif obj.id in (MOON_DISC, MOON_DETAIL):
             radius = max(3, obj.scale_x * width_per_block * 1.55)
             canvas.circle(px(obj.x), py(obj.y), radius * 1.25, color, 0.12)
