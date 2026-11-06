@@ -134,17 +134,44 @@ def _solid_strip(level: Level, x0: float, x1: float, bottom: float,
         x += width
 
 
+def ship_corridor_bounds(start: float, end: float,
+                         x: float) -> tuple[float, float, float]:
+    """Gradual, wide S-curves: (floor top, ceiling bottom, safe center).
+
+    Important: two peaks and troughs must *block* a constant-height flight.
+    Entrance and exit open gradually, with no thin surprise pinch points.
+    This is conservative geometry, NOT a simulated ship playthrough.
+    """
+    entry = start + 300.0
+    exit_ = end - 300.0
+    ease_in = max(0.0, min(1.0, (x - entry) / 550.0))
+    ease_out = max(0.0, min(1.0, (exit_ - x) / 550.0))
+    strength = min(ease_in, ease_out)
+    phase = (x - start - 900.0) * (2.0 * math.pi / 2150.0)
+    center = 190.0 + 121.0 * strength * math.sin(phase)
+    half_gap = 172.0 - 74.0 * strength  # gap >= 196 units in the active section
+    return (max(0.0, center - half_gap),
+            min(410.0, center + half_gap), center)
+
+
 def _ship(level: Level, start: float, end: float) -> None:
-    # Open launch / landing zones. Free corridor >= 285 units after ramp-in.
-    x = start + 180
-    while x < end - 90:
-        progress = (x - (start + 180)) / max(1, end - start - 270)
-        floor = 18 + 13 * math.sin(progress * math.pi * 2)
-        ceiling = floor + 315
-        width = min(90.0, end - 90 - x)
-        _solid_strip(level, x, x + width, 0, max(1, floor), 5, step=90)
-        _solid_strip(level, x, x + width, ceiling, 415, 5, step=90)
-        x += 90
+    """A readable slalom through tall cloud banks, not an empty flight tunnel.
+
+    The player has time to ascend after the portal before the first bend.
+    The central path gradually rises/falls by ~240 units peak-to-trough;
+    a constant-Y line hits an upper or lower bank. No moving solids.
+    """
+    x = start + 300.0
+    while x < end - 290:
+        width = min(60.0, end - 290.0 - x)
+        mid = x + width / 2
+        floor, ceiling, _ = ship_corridor_bounds(start, end, mid)
+        # Near ground: no solid block when the curve dives below y=0.
+        if floor > 2:
+            _solid_strip(level, x, x + width, 0, floor, 5, step=60)
+        if ceiling < 409:
+            _solid_strip(level, x, x + width, ceiling, 410, 5, step=60)
+        x += 60.0
 
 
 def _ball(level: Level, start: float, end: float) -> None:
@@ -254,7 +281,7 @@ def _route(level: Level, sections: list[dict]) -> list[tuple[float, float]]:
                            default=9999)
                 y = 88 if near <= 44 else 30
             elif mode == "ship":
-                y = 155 + 23 * math.sin((x - start) / 700)
+                y = ship_corridor_bounds(start, end, x)[2]
             elif mode == "ball":
                 t = (x - start) / max(1, end - start)
                 y = 210 if 0.25 <= t <= 0.87 else 30
