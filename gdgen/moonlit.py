@@ -102,6 +102,54 @@ def _arch(level: Level, x: float, y: float, width: float = 165,
         _obj(level, GLOW, px, py, channel=11, sx=0.5, z=-3)
 
 
+def _crystal_cluster(level: Level, x: float, y: float, rng: random.Random,
+                     *, width: float = 75, z: int = -3) -> None:
+    """A family of harmless glowing facets; never collision blocks."""
+    for i in range(3):
+        dx = (i - 1) * width * 0.33
+        height = rng.choice((30, 45, 60, 75))
+        channel = (3, 4, 10)[i]
+        _obj(level, PANEL, x + dx, y + height * 0.27, channel=channel,
+             sx=0.30, sy=height / 30, rotation=(i - 1) * 15, z=z)
+        _star(level, x + dx, y + height * 0.75, channel=7, size=0.25)
+
+
+def _cloud_palace(level: Level, x: float, y: float,
+                  rng: random.Random, *, grand: bool = False) -> None:
+    """Layered skyline and bridge/turret motifs far behind the playable lane."""
+    size = 1.35 if grand else 1.0
+    _cloud(level, x, y - 68 * size, 2.8 * size, 9, rng, z=-6)
+    _cloud(level, x - 90 * size, y - 76 * size, 1.65 * size, 2, rng, z=-6)
+    _cloud(level, x + 90 * size, y - 74 * size, 1.80 * size, 3, rng, z=-6)
+    for dx in (-76 * size, 0, 76 * size):
+        tower_height = (125 if dx == 0 else 90) * size
+        _obj(level, PANEL, x + dx, y + tower_height * 0.34,
+             channel=8, sx=0.53 * size, sy=tower_height / 30, z=-7)
+        _obj(level, PANEL, x + dx, y + tower_height * 0.82,
+             channel=10, sx=1.05 * size, sy=0.22, z=-5)
+        _star(level, x + dx, y + tower_height + 8, channel=6, size=0.55)
+    _arch(level, x, y + 73 * size, width=105 * size, height=87 * size)
+
+
+def _ship_path_decor(level: Level, start: float, end: float,
+                     rng: random.Random) -> None:
+    """Navigation cues and crystal banks outside the ship's safe lane."""
+    for i, x in enumerate(range(int(start + 760), int(end - 550), 220)):
+        floor, ceiling, center = ship_corridor_bounds(start, end, x)
+        _star(level, x, center, channel=6, size=0.30)
+        if floor > 25:
+            _obj(level, PANEL, x, floor + 6, channel=4,
+                 sx=4.6, sy=0.13, z=-2)
+            _cloud(level, x + 34, max(0, floor - 38), 1.7, 3, rng, z=-4)
+        if ceiling < 390:
+            _obj(level, PANEL, x, ceiling - 6, channel=2,
+                 sx=4.6, sy=0.13, z=-2)
+            _cloud(level, x - 26, ceiling + 35, 1.6, 9, rng, z=-4)
+        if i % 3 == 0:
+            _crystal_cluster(level, x, min(398, ceiling + 20), rng,
+                             width=52, z=-4)
+
+
 def _at(level: Level, x: float, y: float, mode: str) -> None:
     level.objects.append(make_portal(MODE_PORTALS[mode], x, y))
     # No extra speed portal: all 4 sections use normal speed.
@@ -208,8 +256,8 @@ def _wave(level: Level, start: float, end: float) -> None:
 def _scenery(level: Level, sections: list[dict], rng: random.Random,
              bpm: int) -> None:
     max_x = sections[-1]["end"]
-    # Far clouds, midground clouds, glowing near clouds.
-    for i, x in enumerate(range(90, int(max_x), 165)):
+    # Deep parallax layers: more clouds and a recognizable world.
+    for i, x in enumerate(range(90, int(max_x), 120)):
         offset = rng.uniform(-45, 45)
         _cloud(level, x + offset, rng.uniform(240, 390),
                rng.uniform(2.0, 4.2), 12, rng, group=201, z=-8)
@@ -219,13 +267,13 @@ def _scenery(level: Level, sections: list[dict], rng: random.Random,
                    rng, group=202, z=-6)
 
     # Readable near-surface cloud decoration only: no physical collisions.
-    for x in range(270, int(max_x - 150), 390):
+    for x in range(270, int(max_x - 150), 260):
         _cloud(level, x, rng.choice((35, 55, 75)),
                rng.uniform(1.3, 2.5), 1, rng, z=-2)
 
     # Stars and dangling lanterns; keep below conservative world limits.
-    for i in range(int(max_x / 110)):
-        x = 120 + i * 110 + rng.uniform(-20, 20)
+    for i in range(int(max_x / 75)):
+        x = 120 + i * 75 + rng.uniform(-16, 16)
         y = rng.uniform(245, 420)
         _star(level, x, y, channel=rng.choice((6, 7, 11)),
               size=rng.uniform(0.28, 0.7), hanging=i % 9 == 0)
@@ -235,6 +283,19 @@ def _scenery(level: Level, sections: list[dict], rng: random.Random,
         _moon(level, middle + 300, 315, 6.0)
         for x in (section["start"] + 750, section["end"] - 630):
             _arch(level, x, 240, width=140, height=150)
+
+    # More scene variety: cloud bridges, glowing ruins, lanterns, crystals.
+    # Only native *decorative* IDs; never create extra solid obstacles here.
+    for i, x in enumerate(range(550, int(max_x - 420), 550)):
+        base_y = (280, 315, 340, 275)[i % 4]
+        _cloud_palace(level, x, base_y, rng, grand=i % 3 == 1)
+    for i, x in enumerate(range(340, int(max_x - 150), 310)):
+        base_y = (88, 355, 115, 325)[i % 4]
+        _crystal_cluster(level, x, base_y, rng, width=58)
+        for dx, dy in ((-54, 20), (-23, 34), (16, 25)):
+            _star(level, x + dx, base_y + dy, channel=6, size=0.22)
+
+    _ship_path_decor(level, sections[1]["start"], sections[1]["end"], rng)
 
     # Ending temple: three decorative arcades, no solid walls.
     finish = sections[-1]["end"] - 180
