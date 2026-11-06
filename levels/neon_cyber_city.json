@@ -1,0 +1,27 @@
+{
+  "name": "Neon Cyber City",
+  "duration": 60.0,
+  "difficulty": "hard",
+  "theme": "cyber",
+  "modes": [
+    "cube",
+    "ship",
+    "wave",
+    "cube"
+  ],
+  "decor": 3,
+  "fast_second_half": false,
+  "seed": 20261106,
+  "music_id": 0,
+  "bpm": 120,
+  "_generator": {
+    "version": "0.1.0",
+    "objects": 2321,
+    "blocks": 620.369,
+    "duration_estimate": 59.98,
+    "metadata": {
+      "preset": "neon-cyber-city",
+      "edits": []
+    }
+  }
+}
