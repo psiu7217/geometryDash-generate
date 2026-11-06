@@ -196,7 +196,7 @@ def ship_corridor_bounds(start: float, end: float,
     ease_out = max(0.0, min(1.0, (exit_ - x) / 550.0))
     strength = min(ease_in, ease_out)
     phase = (x - start - 900.0) * (2.0 * math.pi / 2150.0)
-    center = 190.0 + 121.0 * strength * math.sin(phase)
+    center = 190.0 + 106.0 * strength * math.sin(phase)
     half_gap = 172.0 - 74.0 * strength  # gap >= 196 units in the active section
     return (max(0.0, center - half_gap),
             min(410.0, center + half_gap), center)
@@ -206,7 +206,7 @@ def _ship(level: Level, start: float, end: float) -> None:
     """A readable slalom through tall cloud banks, not an empty flight tunnel.
 
     The player has time to ascend after the portal before the first bend.
-    The central path gradually rises/falls by ~240 units peak-to-trough;
+    The central path gradually rises/falls by ~210 units peak-to-trough;
     a constant-Y line hits an upper or lower bank. No moving solids.
     """
     x = start + 180.0
