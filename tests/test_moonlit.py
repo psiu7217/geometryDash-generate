@@ -97,6 +97,9 @@ class MoonlitTests(unittest.TestCase):
         self.assertGreater(len(decorative), 1400)
         self.assertGreater(len(self.level.objects), 1800)
         self.assertEqual(sum(o.id in HAZARD_IDS for o in self.level.objects), 8)
+        # Every scenery object must be *behind* the player, not just assigned
+        # to an editor-only organization layer.
+        self.assertTrue(all(o.get(24) == -3 for o in decorative))
 
     def test_group_targets_exist(self):
         groups = set()
