@@ -73,6 +73,9 @@ def generate(spec: LevelSpec) -> Level:
 
     _add_decor(level, spec, sections, rng)
     _add_color_shifts(level, spec, sections)
+    if spec.theme == "cyber" and spec.decor >= 2:
+        from .city import add_cyber_city
+        add_cyber_city(level, sections, rng, decor=spec.decor, bpm=spec.bpm)
 
     level.sections = [
         {
@@ -299,6 +302,18 @@ def build_preset(name: str, prompt: str) -> LevelSpec:
 
 def spec_from_preset(name: str) -> LevelSpec:
     preset = name.lower()
+    if preset == "neon-cyber-city":
+        return LevelSpec(
+            name="Neon Cyber City",
+            duration=60.0,
+            difficulty="hard",
+            theme="cyber",
+            modes=["cube", "ship", "wave", "cube"],
+            decor=3,
+            fast_second_half=False,
+            seed=20261106,
+            bpm=120,
+        )
     if preset == "ai-neon-run":
         return LevelSpec(
             name="AI Neon Run",
