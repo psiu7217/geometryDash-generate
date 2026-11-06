@@ -132,12 +132,12 @@ def _solid_strip(level: Level, x0: float, x1: float, bottom: float,
 
 def _ship(level: Level, start: float, end: float) -> None:
     # Open launch / landing zones. Free corridor >= 285 units after ramp-in.
-    x = start + 420
-    while x < end - 450:
-        progress = (x - (start + 420)) / max(1, end - start - 870)
+    x = start + 180
+    while x < end - 90:
+        progress = (x - (start + 180)) / max(1, end - start - 270)
         floor = 18 + 13 * math.sin(progress * math.pi * 2)
         ceiling = floor + 315
-        width = min(90.0, end - 450 - x)
+        width = min(90.0, end - 90 - x)
         _solid_strip(level, x, x + width, 0, max(1, floor), 5, step=90)
         _solid_strip(level, x, x + width, ceiling, 415, 5, step=90)
         x += 90
