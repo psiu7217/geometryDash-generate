@@ -102,7 +102,9 @@ def cmd_generate(args) -> int:
     level = generate(spec)
     out_dir = pathlib.Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
-    path = out_dir / f"{slugify(spec.name)}.gdlvl"
+    stem = ("moonlit_cloud_kingdom" if args.preset == "moonlit-cloud-kingdom"
+            else slugify(spec.name))
+    path = out_dir / f"{stem}.gdlvl"
     if not args.preview_only:
         save_gdlvl(path, level)
         _write_sidecar(path, spec, level, metadata)
@@ -110,9 +112,9 @@ def cmd_generate(args) -> int:
     preview_path = None
     detail_path = None
     if not args.no_preview or args.preview_only:
-        preview_path = render_preview(level, out_dir / "preview" / f"{slugify(spec.name)}.png")
+        preview_path = render_preview(level, out_dir / "preview" / f"{stem}.png")
         detail_path = render_preview(
-            level, out_dir / "preview" / f"{slugify(spec.name)}_detail.png",
+            level, out_dir / "preview" / f"{stem}_detail.png",
             width_per_block=14, height_per_block=18, window_blocks=90,
         )
 
@@ -233,11 +235,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     gen = sub.add_parser("generate", help="сгенерировать уровень по промпту или пресету")
     gen.add_argument("--prompt", "-p", help="текстовое описание уровня")
-    gen.add_argument("--preset", choices=["ai-neon-run", "neon-cyber-city"], help="готовый пресет")
+    gen.add_argument("--preset", choices=["ai-neon-run", "neon-cyber-city", "moonlit-cloud-kingdom"], help="готовый пресет")
     gen.add_argument("--out", default="levels", help="папка для результата")
     gen.add_argument("--name", help="переопределить имя уровня")
     gen.add_argument("--duration", type=float, help="длительность в секундах")
-    gen.add_argument("--theme", help="neon/space/lava/ice/cyber/forest/sunset")
+    gen.add_argument("--theme", help="neon/space/lava/ice/cyber/forest/sunset/moonlit")
     gen.add_argument("--seed", type=int, help="seed генератора")
     gen.add_argument("--bpm", type=int, help="BPM для декоративных ритмических акцентов")
     gen.add_argument("--preview-only", action="store_true", help="PNG без записи .gdlvl или JSON")
