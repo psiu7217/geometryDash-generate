@@ -175,11 +175,11 @@ def _scenery(level: Level, sections: list[dict], rng: random.Random,
              bpm: int) -> None:
     max_x = sections[-1]["end"]
     # Far clouds, midground clouds, glowing near clouds.
-    for x in range(90, int(max_x), 165):
+    for i, x in enumerate(range(90, int(max_x), 165)):
         offset = rng.uniform(-45, 45)
         _cloud(level, x + offset, rng.uniform(285, 470),
                rng.uniform(2.0, 4.2), 12, rng, group=201, z=-8)
-        if x % 3 != 0:
+        if i % 3 != 0:
             _cloud(level, x + rng.uniform(-60, 60), rng.uniform(135, 290),
                    rng.uniform(1.05, 2.6), rng.choice((2, 3, 5)),
                    rng, group=202, z=-6)
