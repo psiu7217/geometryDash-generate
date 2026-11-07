@@ -168,17 +168,53 @@ def _at(level: Level, x: float, y: float, mode: str) -> None:
     # No extra speed portal: all 4 sections use normal speed.
 
 
-def _cube(level: Level, start: float, end: float) -> None:
-    # Explicitly sparse: previous 'Neon Cyber City' was judged too hard.
-    for offset in (780, 1410, 2100, 2820, 3540, 4200):
-        if start + offset < end - 350:
-            level.objects.append(make_spike(start + offset, 15, channel=3))
-    # Optional yellow orbs reinforce the reference image but are not required
-    # for progression. They are placed away from all compulsory spikes.
-    for offset in (1110, 3160):
-        level.objects.append(GDObject(ORB_YELLOW, start + offset, 90, {21: 6}))
-    # The ordinary Geometry Dash ground at y=0 is traversable.
-    # Do NOT build a row of solid blocks on it: that would trap the player.
+# Cube opening: a short stair of wide cloud ledges, then yellow orbs nestled
+# in decorative clouds, then a descending cloud stair into the ship portal.
+# Rises stay at 30 units and gaps at ~90 units, well inside the normal Cube
+# jump arc. Falls land on the ordinary ground, so a missed orb is survivable.
+CUBE_STEPS = (
+    (330, 570, 30), (660, 900, 60), (990, 1230, 90), (1320, 1560, 120),
+    (1650, 1890, 150), (1980, 2220, 180), (2310, 2550, 210), (2640, 2880, 240),
+)
+CUBE_ORBS = ((2940, 280), (3060, 310), (3180, 335))
+CUBE_DESCENT = (
+    (3290, 3560, 320), (3560, 3830, 260), (3830, 4100, 200),
+    (4100, 4370, 140), (4370, 4560, 80),
+)
+# Ground hazards live under the cloud path: the intended platform line stays
+# clean, but a missed jump is punished. Spacing >= 600 keeps it readable.
+CUBE_SPIKES = (945, 1605, 2265, 2990, 3590, 4220)
+
+
+def _cloud_platform(level: Level, x0: float, x1: float, top: float,
+                    rng: random.Random) -> None:
+    """Solid wide ledge, 30 units thick, with cosmetic cloud puffs behind it."""
+    _solid_strip(level, x0, x1, top - 30, top, 1, step=120, glow="top")
+    for cx in (x0 + 34, (x0 + x1) / 2, x1 - 34):
+        _cloud(level, cx, top + 6, rng.uniform(0.75, 1.05),
+               rng.choice((1, 2, 3)), rng, z=-2)
+
+
+def _cube(level: Level, start: float, end: float, rng: random.Random) -> None:
+    # Ascending cloud stair: jump from ledge to ledge, each one 30 units up.
+    for x0, x1, top in CUBE_STEPS:
+        if x1 < end - 300:
+            _cloud_platform(level, x0, x1, top, rng)
+    # Yellow orbs hidden inside cloud puffs continue the climb into the sky.
+    for ox, oy in CUBE_ORBS:
+        _cloud(level, ox - 22, oy - 10, 1.05, 1, rng, z=-2)
+        _cloud(level, ox + 24, oy + 2, 0.90, 2, rng, z=-2)
+        _cloud(level, ox - 2, oy + 20, 0.80, 3, rng, z=-3)
+        level.objects.append(GDObject(ORB_YELLOW, ox, oy, {21: 6}))
+    # Descending cloud stair; adjacent steps let the player simply drop down.
+    for x0, x1, top in CUBE_DESCENT:
+        if x1 < end - 60:
+            _cloud_platform(level, x0, x1, top, rng)
+    # Ground spikes beneath the route, spaced so each one is readable.
+    for sx in CUBE_SPIKES:
+        if sx < end - 120:
+            level.objects.append(make_spike(sx, 15, channel=3))
+    # The ordinary ground at y=0 stays traversable so a fall is never a lock.
 
 
 def _glow_edge(level: Level, x0: float, x1: float, y: float, side: str,
@@ -433,10 +469,15 @@ def generate_moonlit(spec) -> Level:
                 # Ball can approach from the floor, mid-air or the ceiling.
                 for portal_y in (45, 125, 200):
                     _at(level, cursor + 30, portal_y, mode)
+            elif mode == "ship":
+                # The cube leaves the descending cloud stair at varying
+                # heights; overlapping portals catch every approach.
+                for portal_y in (45, 135, 225):
+                    _at(level, cursor + 30, portal_y, mode)
             else:
                 _at(level, cursor + 30, 45, mode)
         if mode == "cube":
-            _cube(level, cursor, end)
+            _cube(level, cursor, end, rng)
         elif mode == "ship":
             _ship(level, cursor, end)
         elif mode == "ball":
