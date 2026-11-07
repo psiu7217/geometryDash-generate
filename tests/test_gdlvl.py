@@ -15,6 +15,11 @@ class GdlvlTests(unittest.TestCase):
     def test_encoded_container(self):
         data = encode_gdlvl(self.level)
         self.assertTrue(data.startswith(b"H4sI"))
+        # Fixed gzip OS byte keeps output byte-identical on every platform.
+        import base64
+        raw = base64.urlsafe_b64decode(data + b"=" * (-len(data) % 4))
+        self.assertEqual(raw[9], 255)
+        self.assertEqual(data, encode_gdlvl(self.level))
         root = decode_gdlvl_bytes(data)
         restored = level_from_xml(root)
         self.assertEqual(restored.name, "AI Neon Run")

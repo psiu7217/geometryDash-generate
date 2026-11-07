@@ -32,8 +32,20 @@ def _b64encode(data: bytes) -> str:
     return base64.urlsafe_b64encode(data).decode("ascii")
 
 
+def _stable_gzip(data: bytes) -> bytes:
+    """gzip with a fixed header so bytes match on Windows and Linux.
+
+    ``gzip.compress(..., mtime=0)`` already zeroes the timestamp, but Python
+    still writes a platform-dependent OS byte at offset 9, which made CI keep
+    re-committing identical levels. Force the standard unknown value instead.
+    """
+    compressed = bytearray(gzip.compress(data, mtime=0))
+    compressed[9] = 255
+    return bytes(compressed)
+
+
 def compress_text(text: str) -> str:
-    return _b64encode(gzip.compress(text.encode("utf-8"), mtime=0))
+    return _b64encode(_stable_gzip(text.encode("utf-8")))
 
 
 def decompress_text(value: str) -> str:
@@ -136,7 +148,7 @@ def build_gdlvl_xml(level: Level) -> str:
 
 
 def encode_gdlvl(level: Level) -> bytes:
-    return _b64encode(gzip.compress(build_gdlvl_xml(level).encode("utf-8"), mtime=0)).encode("ascii")
+    return _b64encode(_stable_gzip(build_gdlvl_xml(level).encode("utf-8"))).encode("ascii")
 
 
 def decode_gdlvl_bytes(raw: bytes) -> ET.Element:
