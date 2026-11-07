@@ -99,8 +99,10 @@ def estimate_route(level: Level, step: float = 15.0) -> list[tuple[float, float]
                         y = GROUND_Y
                     else:
                         y = GROUND_Y + JUMP_HEIGHT * math.sin(math.pi * t)
-            elif mode == "ship":
-                y = _corridor_center(level, x) or 90.0
+            elif mode in {"ship", "ball", "wave"}:
+                # Ship and Wave follow the middle of the free corridor; Ball
+                # uses the middle of the lower half of its gravity corridor.
+                y = _corridor_center(level, x) or 75.0
             else:
                 y = 75.0
             points.append((round(x, 2), round(y, 2)))

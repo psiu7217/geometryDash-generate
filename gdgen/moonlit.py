@@ -30,6 +30,16 @@ ALPHA_TRIGGER = 1007
 BASE_SPEED = 311.58
 BEATS_PER_MINUTE = 120
 SECTION_MODES = ("cube", "ship", "ball", "wave")
+# Decorative groups must never be attached to solid gameplay geometry.
+DECOR_GROUPS = (201, 202)
+# Wave corridor: a wide tunnel that drifts gently up and down. A full period
+# spans ~4.2 s at normal speed, so the player follows a soft zigzag instead of
+# pixel-precise slits. The first 420 units stay flat for a calm entry.
+WAVE_FLOOR_BASE = 8.0
+WAVE_FLOOR_AMPLITUDE = 48.0
+WAVE_WAVELENGTH = 1320.0
+WAVE_HEIGHT = 280.0
+WAVE_RAMP_IN = 420.0
 # Palette channels intentionally separate decor and traversable surfaces.
 PALETTE = {
     1000: "080823", 1001: "1b1038", 1002: "e3baff",
@@ -171,8 +181,26 @@ def _cube(level: Level, start: float, end: float) -> None:
     # Do NOT build a row of solid blocks on it: that would trap the player.
 
 
+def _glow_edge(level: Level, x0: float, x1: float, y: float, side: str,
+               channel: int = 11) -> None:
+    """Thin non-colliding highlight along a platform face.
+
+    ``side`` is "top" for floors and "bottom" for ceilings. The B4 panel is
+    pure decoration (id 1904) and never participates in player collision.
+    """
+    width = x1 - x0
+    if width <= 0:
+        return
+    thickness = 0.14
+    offset = 15 * thickness
+    cy = y + offset if side == "top" else y - offset
+    _obj(level, PANEL, x0 + width / 2, cy, channel=channel,
+         sx=round(width / 30, 3), sy=thickness, z=-1)
+
+
 def _solid_strip(level: Level, x0: float, x1: float, bottom: float,
-                 top: float, color: int, *, step: int = 90) -> None:
+                 top: float, color: int, *, step: int = 90,
+                 glow: str | None = None) -> None:
     if top <= bottom or x1 <= x0:
         return
     x = x0
@@ -182,6 +210,10 @@ def _solid_strip(level: Level, x0: float, x1: float, bottom: float,
             x + width / 2, (top + bottom) / 2, channel=color,
             sx=width / 30, sy=(top - bottom) / 30,
         ))
+        if glow == "top":
+            _glow_edge(level, x, x + width, top, "top")
+        elif glow == "bottom":
+            _glow_edge(level, x, x + width, bottom, "bottom")
         x += width
 
 
@@ -229,30 +261,41 @@ def _ball(level: Level, start: float, end: float) -> None:
     # Actual Ball: tap to flip gravity between the ground and overhead ceiling.
     # The top starts after a long safe entry and ends before Wave.
     # Ceiling lower face = 195; enough clearance for switching gravity.
-    _solid_strip(level, start + 500, end - 620, 195, 225, 5, step=90)
+    _solid_strip(level, start + 500, end - 620, 195, 225, 5, step=90,
+                 glow="bottom")
     # At normal speed there is > 4 seconds before each single spike.
     for offset in (1720, 3450):
         if start + offset < end - 850:
             level.objects.append(make_spike(start + offset, 15, channel=3))
     # Auto-restore normal gravity for balls travelling on the ceiling.
     # Without this, an inverted Ball can drift upward when the ceiling ends.
-    level.objects.append(GDObject(GRAVITY_NORMAL, end - 790, 180, {}))
+    # The portal core sits below the slab, so it cannot visually clip it.
+    level.objects.append(GDObject(GRAVITY_NORMAL, end - 790, 150, {}))
     # The final stretch has no ceiling: users can return to the floor before
-    # the Wave portal. A second portal at ceiling height covers missed landings.
+    # the Wave portal. Stacked Wave portals at 45/125/200 cover floor, mid-air
+    # and ceiling approaches so a missed landing cannot skip the switch.
+
+
+def _wave_floor(x: float, start: float) -> float:
+    """Floor height of the wavy tunnel; shared by geometry and route."""
+    travelled = max(0.0, x - start - WAVE_RAMP_IN)
+    phase = math.tau * travelled / WAVE_WAVELENGTH
+    return WAVE_FLOOR_BASE + WAVE_FLOOR_AMPLITUDE * (1 - math.cos(phase)) / 2
 
 
 def _wave(level: Level, start: float, end: float) -> None:
     # Wide corridor, deliberately designed for ±45 degree Wave input:
-    # >= 300 units of usable vertical space, no sharp zigzag slits.
-    # The player can follow a gentle diagonal rather than precise taps.
+    # 280 units of usable vertical space. After a flat entry shelf the whole
+    # tunnel drifts up and down by 48 units over ~4.2 s, producing a soft
+    # zigzag that stays forgiving.
     x = start + 180
     while x < end - 30:
-        phase = (x - start) / 1000.0
-        floor = 8 + 8 * math.sin(phase)
-        ceiling = floor + 325
+        floor = _wave_floor(x, start)
+        ceiling = floor + WAVE_HEIGHT
         width = min(90.0, end - 30 - x)
-        _solid_strip(level, x, x + width, 0, floor, 5, step=90)
-        _solid_strip(level, x, x + width, ceiling, 410, 5, step=90)
+        _solid_strip(level, x, x + width, 0, floor, 5, step=90, glow="top")
+        _solid_strip(level, x, x + width, ceiling, 410, 5, step=90,
+                     glow="bottom")
         x += 90
 
 
@@ -348,11 +391,11 @@ def _route(level: Level, sections: list[dict]) -> list[tuple[float, float]]:
                 y = ship_corridor_bounds(start, end, x)[2]
             elif mode == "ball":
                 t = (x - start) / max(1, end - start)
-                y = 210 if 0.25 <= t <= 0.87 else 30
+                y = 180 if 0.25 <= t <= 0.87 else 30
             else:
-                # Gentle illustration of a 45-degree-controlled trajectory,
-                # not an input schedule with validated transition timings.
-                y = 145 + 53 * math.sin((x - start) / 130)
+                # Centre of the wavy tunnel; the corridor itself is the guide.
+                # This is illustration, not a validated input schedule.
+                y = _wave_floor(x, start) + WAVE_HEIGHT / 2
             result.append((round(x, 2), round(y, 2)))
             x += 15
     return result
@@ -382,12 +425,14 @@ def generate_moonlit(spec) -> Level:
             # Ship altitude is player-controlled: cover the broad flight lane
             # with vertically separated mode portals, not only a low one.
             if mode == "ball":
-                for portal_y in (45, 145, 245):
+                # Ship can approach at any altitude inside its S-curve lane.
+                # Four vertically overlapping portals form a safe wall.
+                for portal_y in (45, 135, 225, 315):
                     _at(level, cursor + 30, portal_y, mode)
             elif mode == "wave":
-                # Ball can approach from floor or ceiling.
-                _at(level, cursor + 30, 45, mode)
-                _at(level, cursor + 30, 200, mode)
+                # Ball can approach from the floor, mid-air or the ceiling.
+                for portal_y in (45, 125, 200):
+                    _at(level, cursor + 30, portal_y, mode)
             else:
                 _at(level, cursor + 30, 45, mode)
         if mode == "cube":

@@ -9,10 +9,13 @@ from gdgen import cli
 from gdgen.generator import generate, spec_from_preset
 from gdgen.gdlvl import load_gdlvl, save_gdlvl
 from gdgen.moonlit import (
-    CLOUD_IDS, GLOW, MOON_DISC, MOONLIT_DECOR_IDS,
+    CLOUD_IDS, DECOR_GROUPS, GLOW, MOON_DISC, MOONLIT_DECOR_IDS,
     MOVE_TRIGGER, PULSE_TRIGGER, ship_corridor_bounds,
 )
-from gdgen.objects import BLOCK, HAZARD_IDS, PORTAL_BALL, PORTAL_WAVE
+from gdgen.objects import (
+    BLOCK, GDObject, HAZARD_IDS, PORTAL_BALL, PORTAL_WAVE,
+)
+from gdgen.route import _corridor_center
 from gdgen.validate import validate
 
 
@@ -32,13 +35,38 @@ class MoonlitTests(unittest.TestCase):
 
     def test_reachable_portals_and_ball_geometry(self):
         objects = self.level.objects
-        self.assertEqual(sum(o.id == PORTAL_BALL for o in objects), 3)
-        self.assertEqual(sum(o.id == PORTAL_WAVE for o in objects), 2)
+        self.assertEqual(sum(o.id == PORTAL_BALL for o in objects), 4)
+        self.assertEqual(sum(o.id == PORTAL_WAVE for o in objects), 3)
         ball = self.level.sections[2]
         ceiling = [o for o in objects if o.id == BLOCK
                    and ball["start"] + 500 <= o.x < ball["end"] - 500
                    and o.y > 180]
         self.assertGreater(len(ceiling), 10)
+        # The stacked portals must leave no vertical gap in the ship lane.
+        ball_portals = sorted(o.y for o in objects if o.id == PORTAL_BALL)
+        self.assertLessEqual(ball_portals[-1] - ball_portals[0], 270)
+        self.assertTrue(all(b - a <= 90
+                            for a, b in zip(ball_portals, ball_portals[1:])))
+        wave_portals = sorted(o.y for o in objects if o.id == PORTAL_WAVE)
+        self.assertTrue(all(b - a <= 90
+                            for a, b in zip(wave_portals, wave_portals[1:])))
+
+    def test_wave_is_a_wide_gentle_zigzag(self):
+        wave = self.level.sections[3]
+        xs = list(range(int(wave["start"] + 300), int(wave["end"] - 120), 120))
+        centers = [_corridor_center(self.level, x) for x in xs]
+        self.assertTrue(all(c is not None for c in centers))
+        self.assertGreaterEqual(max(centers) - min(centers), 35)
+        for x in xs:
+            floors = [o.y + 15 * o.scale_y for o in self.level.objects
+                      if o.id == BLOCK and abs(o.x - x) <= 15 * o.scale_x + 2
+                      and o.y < 120]
+            ceilings = [o.y - 15 * o.scale_y for o in self.level.objects
+                        if o.id == BLOCK and abs(o.x - x) <= 15 * o.scale_x + 2
+                        and o.y > 120]
+            self.assertTrue(floors and ceilings, f"нет стен на x={x}")
+            self.assertGreaterEqual(min(ceilings) - max(floors), 240,
+                                    f"узкий коридор на x={x}")
 
     def test_safely_sparse_gameplay(self):
         hazards = sorted(o.x for o in self.level.objects if o.id in HAZARD_IDS)
@@ -108,8 +136,26 @@ class MoonlitTests(unittest.TestCase):
             if val is not None:
                 groups.update(int(group) for group in str(val).split("."))
         for obj in self.level.objects:
-            if obj.id == MOVE_TRIGGER:
-                self.assertIn(int(obj.get(51)), groups)
+            target = obj.get(51)
+            if target is not None:
+                self.assertIn(int(float(target)), groups)
+        # Decorative groups must never own solid gameplay geometry.
+        solid_groups = {
+            int(float(group))
+            for obj in self.level.objects
+            if obj.id == BLOCK or obj.id in HAZARD_IDS
+            for group in str(obj.get(57, "")).split(".") if group
+        }
+        self.assertFalse(solid_groups & set(DECOR_GROUPS))
+
+    def test_validator_rejects_dangling_trigger_target(self):
+        level = generate(spec_from_preset("moonlit-cloud-kingdom"))
+        level.objects.append(GDObject(
+            MOVE_TRIGGER, 1200, 15, {51: 987654, 28: 15, 29: 0, 10: 1},
+        ))
+        result = validate(level)
+        self.assertTrue(any("987654" in e for e in result.errors),
+                        result.summary())
 
     def test_determinism_and_structure(self):
         self.assertEqual(self.level.to_level_string(),

@@ -10,9 +10,11 @@ import math
 from dataclasses import dataclass, field
 
 from .level import Level
-from .objects import BLOCK, HAZARD_IDS, MODE_NAMES, PORTAL_IDS
-from .generator import JUMP_LENGTH, SPEED_FACTOR
-from .route import GROUND_Y, _corridor_center
+from .objects import (
+    BLOCK, COLOR_TRIGGER, HAZARD_IDS, MODE_NAMES, PULSE_TRIGGER,
+)
+from .generator import JUMP_LENGTH
+from .route import _corridor_center
 
 
 @dataclass
@@ -76,17 +78,76 @@ def validate(level: Level) -> ValidationResult:
 
     # --- portals
     mode_portals = [o for o in objects if o.id in MODE_NAMES]
+    all_hazard_xs = sorted(o.x for o in objects if o.id in HAZARD_IDS)
     if not mode_portals:
         result.warnings.append("В уровне нет порталов смены режима.")
     else:
         xs = [o.x for o in mode_portals]
         if xs != sorted(xs):
             result.errors.append("Порталы режимов стоят не по порядку по X.")
+        blocks = [o for o in objects if o.id == BLOCK]
         for obj in mode_portals:
-            if obj.y < 0 or obj.y > 200:
+            if obj.y < 0 or obj.y > 340:
                 result.warnings.append(
                     f"Портал {MODE_NAMES[obj.id]} на необычной высоте y={obj.y}."
                 )
+            buried = any(
+                abs(block.x - obj.x) <= 15 * block.scale_x
+                and abs(block.y - obj.y) <= 15 * block.scale_y
+                for block in blocks
+            )
+            if buried:
+                result.errors.append(
+                    f"Портал {MODE_NAMES[obj.id]} встроен в твёрдый блок "
+                    f"(x={obj.x:.0f}, y={obj.y:.0f})."
+                )
+            # A mode switch needs a short hazard-free reaction window.
+            close = [x for x in all_hazard_xs if 0 <= x - obj.x < 150]
+            if close:
+                result.warnings.append(
+                    f"Шип через {close[0] - obj.x:.0f} units после портала "
+                    f"{MODE_NAMES[obj.id]} (x={obj.x:.0f}) — мало времени на реакцию."
+                )
+        for i, first in enumerate(mode_portals):
+            for second in mode_portals[i + 1:]:
+                if (first.id == second.id and abs(first.x - second.x) < 30
+                        and abs(first.y - second.y) < 40):
+                    result.errors.append(
+                        f"Дублирующийся портал {MODE_NAMES[first.id]} "
+                        f"около x={first.x:.0f}, y={first.y:.0f}."
+                    )
+
+    # --- trigger targets (group and colour namespaces)
+    declared_groups: set[int] = set()
+    solid_groups: set[int] = set()
+    for obj in objects:
+        ids = _group_ids(obj)
+        declared_groups |= ids
+        if obj.id == BLOCK or obj.id in HAZARD_IDS:
+            solid_groups |= ids
+    for obj in objects:
+        group_id = _int_prop(obj, 51)
+        if group_id is None or group_id == 0:
+            continue
+        if group_id not in declared_groups:
+            result.errors.append(
+                f"Триггер id={obj.id} нацелен на несуществующую группу "
+                f"{group_id} (x={obj.x:.0f})."
+            )
+        elif group_id in solid_groups:
+            result.warnings.append(
+                f"Триггер id={obj.id} управляет группой {group_id}, "
+                f"в которой есть твёрдые блоки или шипы."
+            )
+    for obj in objects:
+        if obj.id not in (COLOR_TRIGGER, PULSE_TRIGGER):
+            continue
+        channel = _int_prop(obj, 23)
+        if channel and channel not in level.colors:
+            result.warnings.append(
+                f"Триггер id={obj.id} нацелен на цветовой канал {channel}, "
+                f"которого нет в kS38 (x={obj.x:.0f})."
+            )
 
     # --- hazards and jump feasibility
     hazard_xs = sorted(o.x for o in objects if o.id in HAZARD_IDS and o.y < 120)
@@ -155,6 +216,32 @@ def validate(level: Level) -> ValidationResult:
     if len(level_string.encode("utf-8")) > 8_000_000:
         result.errors.append("Строка уровня больше 8 МБ — GD может не принять файл.")
 
+    return result
+
+
+def _int_prop(obj, prop: int) -> int | None:
+    value = obj.get(prop)
+    if value is None or value == "":
+        return None
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return None
+
+
+def _group_ids(obj) -> set[int]:
+    """Group IDs stored by GD as an integer array (``1.2.3`` or ``1,2,3``)."""
+    value = obj.get(57)
+    if value is None or value == "":
+        return set()
+    result: set[int] = set()
+    for part in str(value).replace(",", ".").split("."):
+        if not part:
+            continue
+        try:
+            result.add(int(float(part)))
+        except ValueError:
+            continue
     return result
 
 
