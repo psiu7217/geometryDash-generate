@@ -51,22 +51,19 @@ class MoonlitTests(unittest.TestCase):
         self.assertTrue(all(b - a <= 90
                             for a, b in zip(wave_portals, wave_portals[1:])))
 
-    def test_cube_cloud_ascent(self):
+    def test_cube_has_no_lethal_cloud_ledges(self):
         cube = self.level.sections[0]
-        blocks = [o for o in self.level.objects
-                  if o.id == BLOCK and cube["start"] <= o.x <= cube["end"]]
-        tops = sorted({round(o.y + 15 * o.scale_y) for o in blocks})
-        # Ascending cloud stair plus descending stair back to the ship portal.
-        self.assertGreaterEqual(len(tops), 8)
-        self.assertGreaterEqual(tops[3], 90)
-        self.assertLessEqual(max(tops), 340)
+        cube_blocks = [o for o in self.level.objects
+                       if o.id == BLOCK and cube["start"] <= o.x <= cube["end"]]
+        # Solid ledges caused unavoidable block-face deaths; the cube must
+        # stay completely free of solid geometry.
+        self.assertEqual(cube_blocks, [])
         orbs = [o for o in self.level.objects
                 if o.id == ORB_YELLOW and cube["start"] <= o.x <= cube["end"]]
-        self.assertGreaterEqual(len(orbs), 3)
-        self.assertLess(max(o.y for o in orbs), 360)
-        # The player must be able to fall off the last ledge onto open ground.
-        last_x = max(o.x + 15 * o.scale_x for o in blocks)
-        self.assertLess(last_x, cube["end"] - 60)
+        self.assertGreaterEqual(len(orbs), 4)
+        # The first orb must be reachable from an ordinary ground jump.
+        self.assertLessEqual(min(o.y for o in orbs), 90)
+        self.assertLessEqual(max(o.y for o in orbs), 260)
 
     def test_wave_is_a_wide_gentle_zigzag(self):
         wave = self.level.sections[3]

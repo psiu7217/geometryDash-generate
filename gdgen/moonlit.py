@@ -168,53 +168,28 @@ def _at(level: Level, x: float, y: float, mode: str) -> None:
     # No extra speed portal: all 4 sections use normal speed.
 
 
-# Cube opening: a short stair of wide cloud ledges, then yellow orbs nestled
-# in decorative clouds, then a descending cloud stair into the ship portal.
-# Rises stay at 30 units and gaps at ~90 units, well inside the normal Cube
-# jump arc. Falls land on the ordinary ground, so a missed orb is survivable.
-CUBE_STEPS = (
-    (330, 570, 30), (660, 900, 60), (990, 1230, 90), (1320, 1560, 120),
-    (1650, 1890, 150), (1980, 2220, 180), (2310, 2550, 210), (2640, 2880, 240),
-)
-CUBE_ORBS = ((2940, 280), (3060, 310), (3180, 335))
-CUBE_DESCENT = (
-    (3290, 3560, 320), (3560, 3830, 260), (3830, 4100, 200),
-    (4100, 4370, 140), (4370, 4560, 80),
-)
-# Ground hazards live under the cloud path: the intended platform line stays
-# clean, but a missed jump is punished. Spacing >= 600 keeps it readable.
-CUBE_SPIKES = (945, 1605, 2265, 2990, 3590, 4220)
-
-
-def _cloud_platform(level: Level, x0: float, x1: float, top: float,
-                    rng: random.Random) -> None:
-    """Solid wide ledge, 30 units thick, with cosmetic cloud puffs behind it."""
-    _solid_strip(level, x0, x1, top - 30, top, 1, step=120, glow="top")
-    for cx in (x0 + 34, (x0 + x1) / 2, x1 - 34):
-        _cloud(level, cx, top + 6, rng.uniform(0.75, 1.05),
-               rng.choice((1, 2, 3)), rng, z=-2)
+# Cube opening: earlier thin solid ledges produced lethal side faces and made
+# the section unfair, so this section now creates NO solid block at all.
+# Yellow orbs nested in decorative clouds form an optional short ascent; a
+# missed orb simply drops the player back onto the ordinary open ground.
+CUBE_ORBS = ((520, 75), (620, 115), (720, 155), (820, 195), (920, 235))
+# Ground hazards, spaced >= 600 so each one stays readable.
+CUBE_SPIKES = (1350, 1950, 2550, 3150, 3750, 4350)
 
 
 def _cube(level: Level, start: float, end: float, rng: random.Random) -> None:
-    # Ascending cloud stair: jump from ledge to ledge, each one 30 units up.
-    for x0, x1, top in CUBE_STEPS:
-        if x1 < end - 300:
-            _cloud_platform(level, x0, x1, top, rng)
-    # Yellow orbs hidden inside cloud puffs continue the climb into the sky.
+    # Deliberately no BLOCK objects here: a mistimed jump must never end on a
+    # block face. The orbs are the only airborne gameplay in the cube section.
     for ox, oy in CUBE_ORBS:
-        _cloud(level, ox - 22, oy - 10, 1.05, 1, rng, z=-2)
-        _cloud(level, ox + 24, oy + 2, 0.90, 2, rng, z=-2)
-        _cloud(level, ox - 2, oy + 20, 0.80, 3, rng, z=-3)
+        _cloud(level, ox - 20, oy - 12, 1.05, 1, rng, z=-2)
+        _cloud(level, ox + 22, oy - 2, 0.90, 2, rng, z=-2)
+        _cloud(level, ox - 4, oy + 16, 0.80, 3, rng, z=-3)
         level.objects.append(GDObject(ORB_YELLOW, ox, oy, {21: 6}))
-    # Descending cloud stair; adjacent steps let the player simply drop down.
-    for x0, x1, top in CUBE_DESCENT:
-        if x1 < end - 60:
-            _cloud_platform(level, x0, x1, top, rng)
-    # Ground spikes beneath the route, spaced so each one is readable.
     for sx in CUBE_SPIKES:
         if sx < end - 120:
             level.objects.append(make_spike(sx, 15, channel=3))
-    # The ordinary ground at y=0 stays traversable so a fall is never a lock.
+    # The ordinary ground at y=0 stays completely open; the ship portal is
+    # reachable on foot, so falling from the orb chain is never a dead end.
 
 
 def _glow_edge(level: Level, x0: float, x1: float, y: float, side: str,
